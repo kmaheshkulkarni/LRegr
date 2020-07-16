@@ -1,0 +1,103 @@
+---
+title: "Test"
+author: "Mahesh Kulkarni"
+date: "7/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Data
+
+```{r}
+# Load Packages / Libraries
+library(dplyr)
+library(plotly)
+library(purrr)
+library(corrly)
+# Load Data
+Tdata<-read.csv("./Ref_data.csv")
+head(Tdata)
+paste("Rows", nrow(Tdata))
+paste("Columns", ncol(Tdata))
+
+# Remove Strings from Supplier.Name Column
+Tdata %>% mutate_all(~gsub("THE CROWN GROUP |THE CROWN GROUP CO |THE CROWN GROUP CO.", "", .))
+Tdata %>% filter(Supplier.Name == "THE CROWN GROUP CO.")
+
+# Check Strings Counts
+RelParts<- Tdata %>% filter(Rep.Machine.Class== "OFP" | Rep.Machine.Class== "Related Parts")
+head(RelParts)
+count(Tdata, Rep.Machine.Class)
+count(Tdata, Unit.Name)
+count(Tdata, Supplier.Name)
+# plot_ly(Tdata, x= ~Supplier.Name, type="heatmap", color = ~Supplier.Name)
+count(Tdata, MGC)
+summary(Tdata)
+
+# DM Cost > than 1$
+Tdata %>% filter(DM.Cost>1)
+TTen<- Tdata %>% filter(DM.Cost>65)
+count(TTen, Rep.Machine.Class)
+
+####### Analysis for Mannheim¶
+
+ManData<- Tdata %>% filter(Unit.Name == "Mannheim")
+MGcheck<- Tdata %>% filter(MGC == c("D03030200","D03030110","D03050400","D14010110","D07010301","D07050200"))
+head(MGcheck)
+summary(MGcheck)
+
+count(ManData, duplicated(ManData))
+
+# Rows and ColumnS
+paste(nrow(ManData), ncol(ManData))
+
+# Check NA's
+count(ManData, is.na("ManData"))
+sum(is.na(ManData))
+map(ManData, ~sum(is.na(.))) # Check NA's Columnwise
+
+
+#=====================================================================================================================
+#################### Analysis for MGC "D03030200","D03030110","D03050400","D14010110","D07010301","D07050200" ########
+
+# Correlation
+
+selclm<- Tdata %>% select(weight, DM.Cost)
+spearman<- corr_coef_spearman(variable1= Tdata$weight, variable2=Tdata$DM.Cost, decimal = 2)
+
+# Linear Regression
+
+lreg <- function(data=NULL, x=NULL, y=NULL, w1 = NULL, w2 = NULL, xname="", yname=""){
+  DT1<- data %>% filter(data$weight >= w1 &  data$weight <= w2)
+  print(DT1)
+  fit<- lm(weight ~ DM.Cost, data = DT1)
+
+  # Anova
+  print(anova(fit))
+  
+  # Module Summary
+  print(summary(fit))
+  
+   DT1 %>% 
+     plot_ly(x = ~DM.Cost) %>%
+     add_markers(y = ~weight, marker = list(size = 5, opacity = 0.8), showlegend = TRUE, name = "") %>%
+     add_lines(x = ~DM.Cost, y = fitted(fit), 
+               line = list(color = 'rgb(250,128,114)', width = 3),showlegend=TRUE,
+               name = "Best Fit Line") %>%
+      layout(xaxis = list(title = paste0(unique(xname))),
+                     yaxis = list(title = paste0(unique(yname)), showlegend = TRUE)) %>%
+      layout(legend = list(orientation = "h",   # show entries horizontally
+                                   xanchor = "bottom",  # use center of legend as anchor
+                                   x = 0.40, y = -0.3,
+                                   bordercolor = "#333",
+                                   borderwidth = 2)) %>% layout(paste0('LM =', summary(fit)))%>%
+      config(displaylogo = FALSE, collaborate = FALSE)
+}
+
+# Data Visualization
+
+lreg(data=Tdata, x= ~DM.Cost, y= ~weight, w1 = 13, w2 = 50, xname="DM Cost", yname="Weight")
+```
